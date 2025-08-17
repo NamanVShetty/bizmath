@@ -1,3 +1,4 @@
+// src/app/org/[id]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -15,6 +16,7 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import AppShell from "@/components/AppShell";
 
 // ---------- Types ----------
 type Subs = { id: string; name: string; created_at: string };
@@ -36,7 +38,7 @@ export default function OrgPage() {
     if (isSignedIn === false) router.push("/sign-in");
   }, [isSignedIn, router]);
 
-  // ---------- Members / Invites state ----------
+  // ---------- Members / Invites ----------
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [members, setMembers] = useState<Member[]>([]);
@@ -61,12 +63,13 @@ export default function OrgPage() {
   const [entryNotes, setEntryNotes] = useState<string>("");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [savingEntry, setSavingEntry] = useState(false);
+
   const selectedMetric = useMemo(
     () => metrics.find((m) => m.id === selectedMetricId) || null,
     [metrics, selectedMetricId]
   );
 
-  // ---------- Load basics (subs, metrics, members, invites) ----------
+  // ---------- Load basics ----------
   const loadBasics = async () => {
     if (!id) return;
 
@@ -105,11 +108,10 @@ export default function OrgPage() {
     setInvites((invData || []) as Invite[]);
   };
 
-  // auto-claim an invite if my email matches a pending invite
+  // auto-claim invite on sign-in if my email matches
   const claimMyInviteIfAny = async () => {
     if (!id || !user || !myEmail) return;
 
-    // already a member? skip
     const already = members.some((m) => lc(m.email || "") === myEmail || m.user_id === user.id);
     if (already) return;
 
@@ -123,7 +125,6 @@ export default function OrgPage() {
 
     if (!pending) return;
 
-    // add to memberships
     await supabase.from("memberships").insert({
       organisation_id: id,
       user_id: user.id,
@@ -131,10 +132,7 @@ export default function OrgPage() {
       role: pending.role,
     });
 
-    // mark invite accepted
     await supabase.from("invites").update({ status: "accepted" }).eq("id", pending.id);
-
-    // reload lists
     await loadBasics();
   };
 
@@ -148,7 +146,7 @@ export default function OrgPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id, myEmail]);
 
-  // ---------- Members: invite, revoke, remove ----------
+  // ---------- Members: invite / revoke / remove ----------
   const inviteMember = async () => {
     if (!id) return;
     const email = lc(inviteEmail);
@@ -168,7 +166,6 @@ export default function OrgPage() {
 
   const removeMember = async (email: string | null, userId: string | null) => {
     if (!id) return;
-    // don't let user remove themselves for now
     if (lc(email || "") === myEmail) return alert("You can't remove yourself here.");
     if (userId) {
       await supabase.from("memberships").delete().eq("organisation_id", id).eq("user_id", userId);
@@ -254,52 +251,50 @@ export default function OrgPage() {
   if (isSignedIn === false) return null;
 
   return (
-    <main style={{ padding: 24, display: "grid", gap: 24 }}>
-      <div>
-        <Link href="/dashboard" style={{ color: "#4ea8de", textDecoration: "underline" }}>
-          ← Back to Dashboard
-        </Link>
+    <AppShell title="Organisation">
+      {/* Back link (optional) */}
+      <div className="text-sm text-zinc-400">
+        <Link href="/dashboard" className="text-sky-400 hover:underline">← Back to Dashboard</Link>
       </div>
 
-      <h1>Organisation</h1>
-
-      {/* ---------------- Members ---------------- */}
-      <section style={{ border: "1px solid #333", borderRadius: 8, padding: 12 }}>
-        <h2>Members</h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+      {/* Members */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="mb-3 text-lg font-medium">Members</h2>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <input
             placeholder="Invite by email"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 260 }}
+            className="w-72 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none"
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
           </select>
           <button
             onClick={inviteMember}
-            style={{ padding: "8px 12px", borderRadius: 6, background: "black", color: "white" }}
+            className="rounded-md bg-white px-3 py-2 text-sm font-medium text-black hover:bg-zinc-200"
           >
             Send Invite
           </button>
         </div>
 
-        {/* Current members */}
-        <h3>Current members</h3>
-        {!members.length && <p>No members yet (besides owner). Invite someone above.</p>}
-        <ul style={{ lineHeight: 1.9 }}>
+        <h3 className="text-sm font-medium text-zinc-300">Current members</h3>
+        {!members.length && <p className="text-zinc-400">No members yet (besides owner). Invite someone above.</p>}
+        <ul className="divide-y divide-zinc-800">
           {members.map((m, i) => (
-            <li key={i}>
-              {m.email || "(no email)"} — {m.role}
-              {m.user_id ? " ✓" : " (not yet accepted)"}
+            <li key={i} className="flex items-center justify-between py-2">
+              <div className="text-sm">
+                {m.email || "(no email)"} — {m.role}
+                {m.user_id ? " ✓" : " (not yet accepted)"}
+              </div>
               <button
                 onClick={() => removeMember(m.email || null, m.user_id || null)}
-                style={{ marginLeft: 12 }}
+                className="text-sm text-red-400 hover:underline"
               >
                 Remove
               </button>
@@ -307,16 +302,15 @@ export default function OrgPage() {
           ))}
         </ul>
 
-        {/* Pending invites */}
-        <h3 style={{ marginTop: 16 }}>Pending invites</h3>
-        {!invites.filter((iv) => iv.status === "pending").length && <p>No pending invites.</p>}
-        <ul style={{ lineHeight: 1.9 }}>
+        <h3 className="mt-4 text-sm font-medium text-zinc-300">Pending invites</h3>
+        {!invites.filter((iv) => iv.status === "pending").length && <p className="text-zinc-400">No pending invites.</p>}
+        <ul className="divide-y divide-zinc-800">
           {invites
             .filter((iv) => iv.status === "pending")
             .map((iv) => (
-              <li key={iv.id}>
-                {iv.email} — {iv.role} — {iv.status}
-                <button onClick={() => revokeInvite(iv.id)} style={{ marginLeft: 12 }}>
+              <li key={iv.id} className="flex items-center justify-between py-2">
+                <div className="text-sm">{iv.email} — {iv.role} — {iv.status}</div>
+                <button onClick={() => revokeInvite(iv.id)} className="text-sm text-yellow-400 hover:underline">
                   Revoke
                 </button>
               </li>
@@ -324,80 +318,87 @@ export default function OrgPage() {
         </ul>
       </section>
 
-      {/* ---------------- Subsidiaries ---------------- */}
-      <section>
-        <h2>Subsidiaries</h2>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      {/* Subsidiaries */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="mb-3 text-lg font-medium">Subsidiaries</h2>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <input
             placeholder="Subsidiary name"
             value={subsName}
             onChange={(e) => setSubsName(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 260 }}
+            className="w-72 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <button
             onClick={createSubsidiary}
             disabled={savingSubs}
-            style={{ padding: "8px 12px", borderRadius: 6, background: "black", color: "white" }}
+            className="rounded-md bg-white px-3 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-60"
           >
-            {savingSubs ? "Saving..." : "Add"}
+            {savingSubs ? "Saving…" : "Add"}
           </button>
         </div>
-        {!subs.length && <p>No subsidiaries yet.</p>}
-        <ul style={{ lineHeight: 1.9 }}>
+        {!subs.length && <p className="text-zinc-400">No subsidiaries yet.</p>}
+        <ul className="divide-y divide-zinc-800">
           {subs.map((s) => (
-            <li key={s.id}>
-              {s.name} <span style={{ color: "#888" }}>({new Date(s.created_at).toLocaleString()})</span>
+            <li key={s.id} className="flex items-center justify-between py-2">
+              <div>
+                <div className="text-sm font-medium">{s.name}</div>
+                <div className="text-xs text-zinc-400">{new Date(s.created_at).toLocaleString()}</div>
+              </div>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ---------------- Metrics ---------------- */}
-      <section>
-        <h2>Metrics</h2>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      {/* Metrics */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="mb-3 text-lg font-medium">Metrics</h2>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <input
             placeholder="Metric name (e.g., Monthly Revenue)"
             value={metricName}
             onChange={(e) => setMetricName(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 260 }}
+            className="w-72 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <input
             placeholder="Unit (e.g., INR, %, USD)"
             value={metricUnit}
             onChange={(e) => setMetricUnit(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 160 }}
+            className="w-40 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <button
             onClick={createMetric}
             disabled={savingMetric}
-            style={{ padding: "8px 12px", borderRadius: 6, background: "black", color: "white" }}
+            className="rounded-md bg-white px-3 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-60"
           >
-            {savingMetric ? "Saving..." : "Add"}
+            {savingMetric ? "Saving…" : "Add"}
           </button>
         </div>
-        {!metrics.length && <p>No metrics yet.</p>}
-        <ul style={{ lineHeight: 1.9 }}>
+        {!metrics.length && <p className="text-zinc-400">No metrics yet.</p>}
+        <ul className="divide-y divide-zinc-800">
           {metrics.map((m) => (
-            <li key={m.id}>
-              {m.name} {m.unit ? <span style={{ color: "#888" }}>({m.unit})</span> : null}{" "}
-              <span style={{ color: "#888" }}>— {new Date(m.created_at).toLocaleString()}</span>
+            <li key={m.id} className="flex items-center justify-between py-2">
+              <div>
+                <div className="text-sm font-medium">
+                  {m.name} {m.unit ? <span className="text-zinc-400">({m.unit})</span> : null}
+                </div>
+                <div className="text-xs text-zinc-400">{new Date(m.created_at).toLocaleString()}</div>
+              </div>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ---------------- Entries + Chart ---------------- */}
-      <section>
-        <h2>Metric Entries</h2>
+      {/* Entries + Chart */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="mb-3 text-lg font-medium">Metric Entries</h2>
 
         {/* Metric selector */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <label>Metric:</label>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm text-zinc-300">Metric:</label>
           <select
             value={selectedMetricId}
             onChange={(e) => setSelectedMetricId(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 260 }}
+            className="w-72 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           >
             <option value="">-- choose a metric --</option>
             {metrics.map((m) => (
@@ -408,13 +409,13 @@ export default function OrgPage() {
           </select>
         </div>
 
-        {/* Add entry form */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        {/* Add entry */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={entryDate}
             onChange={(e) => setEntryDate(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <input
             type="number"
@@ -422,34 +423,31 @@ export default function OrgPage() {
             placeholder="Value"
             value={entryValue}
             onChange={(e) => setEntryValue(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 160 }}
+            className="w-40 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <input
             placeholder="Notes (optional)"
             value={entryNotes}
             onChange={(e) => setEntryNotes(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 280 }}
+            className="w-80 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
           />
           <button
             onClick={createEntry}
             disabled={savingEntry || !selectedMetricId}
-            style={{ padding: "8px 12px", borderRadius: 6, background: "black", color: "white" }}
+            className="rounded-md bg-white px-3 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-60"
           >
-            {savingEntry ? "Saving..." : "Add Entry"}
+            {savingEntry ? "Saving…" : "Add Entry"}
           </button>
         </div>
 
         {/* Chart */}
-        <div style={{ height: 320, marginTop: 16, background: "#0a0a0a", padding: 12, borderRadius: 8 }}>
-          {!selectedMetric && <p>Please select a metric above to see its chart.</p>}
-          {selectedMetric && entries.length === 0 && <p>No entries yet. Add one above.</p>}
+        <div className="mt-4 h-80 rounded-md border border-zinc-800 bg-zinc-950 p-3">
+          {!selectedMetric && <p className="text-zinc-400">Please select a metric above to see its chart.</p>}
+          {selectedMetric && entries.length === 0 && <p className="text-zinc-400">No entries yet. Add one above.</p>}
           {selectedMetric && entries.length > 0 && (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={entries.map((e) => ({
-                  date: format(new Date(e.ts), "yyyy-MM-dd"),
-                  value: e.value,
-                }))}
+                data={entries.map((e) => ({ date: format(new Date(e.ts), "yyyy-MM-dd"), value: e.value }))}
                 margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -462,26 +460,26 @@ export default function OrgPage() {
           )}
         </div>
 
-        {/* Last 10 entries list */}
-        <div style={{ marginTop: 12 }}>
-          <h3>Recent Entries</h3>
+        {/* Recent entries */}
+        <div className="mt-3">
+          <h3 className="text-sm font-medium text-zinc-300">Recent Entries</h3>
           {entries.length === 0 ? (
-            <p>None yet.</p>
+            <p className="text-zinc-400">None yet.</p>
           ) : (
-            <ul style={{ lineHeight: 1.8 }}>
+            <ul className="mt-1 space-y-1">
               {[...entries]
                 .slice(-10)
                 .reverse()
                 .map((e) => (
-                  <li key={e.id}>
+                  <li key={e.id} className="text-sm">
                     {format(new Date(e.ts), "yyyy-MM-dd")} — {e.value}
-                    {e.notes ? <span style={{ color: "#888" }}> • {e.notes}</span> : null}
+                    {e.notes ? <span className="text-zinc-400"> • {e.notes}</span> : null}
                   </li>
                 ))}
             </ul>
           )}
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

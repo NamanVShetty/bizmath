@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser, UserButton, SignOutButton } from "@clerk/nextjs";
 import { supabase } from "@/lib/supabase";
+import AppShell from "@/components/AppShell";
 
 type Org = { id: string; name: string; created_at: string };
 
@@ -22,13 +24,12 @@ export default function DashboardPage() {
 
   const loadOrgs = async () => {
     if (!user) return;
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("organisations")
       .select("id, name, created_at")
       .eq("owner_user_id", user.id)
       .order("created_at", { ascending: false });
-
-    if (!error && data) setOrgs(data as Org[]);
+    setOrgs((data || []) as Org[]);
   };
 
   useEffect(() => {
@@ -40,20 +41,16 @@ export default function DashboardPage() {
     const name = orgName.trim();
     if (!user || !name) return;
     setSaving(true);
-
     const { data, error } = await supabase
       .from("organisations")
       .insert({ name, owner_user_id: user.id })
       .select("id, name, created_at")
       .single();
-
     setSaving(false);
-
     if (error) {
       alert("Failed to create organisation: " + error.message);
       return;
     }
-
     setOrgName("");
     setOrgs((prev) => [data as Org, ...prev]);
   };
@@ -61,47 +58,48 @@ export default function DashboardPage() {
   if (!isSignedIn) return null;
 
   return (
-    <main style={{ padding: 24, display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <UserButton />
-        <SignOutButton />
-      </div>
-
-      <h1>Dashboard</h1>
-      <p>Create your first Organisation below. It will be saved in Supabase.</p>
-
-      <div style={{ display: "flex", gap: 8 }}>
+    <AppShell title="Dashboard">
+      {/* quick actions */}
+      <div className="flex items-center gap-3">
         <input
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
           placeholder="Organisation name"
-          style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6, minWidth: 260 }}
+          className="w-80 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-600"
         />
         <button
           onClick={createOrg}
           disabled={saving}
-          style={{ padding: "8px 12px", borderRadius: 6, background: "black", color: "white" }}
+          className="rounded-md bg-white px-3 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Create"}
+          {saving ? "Saving…" : "Create"}
         </button>
+        <div className="ml-auto flex items-center gap-2">
+          <SignOutButton />
+          <UserButton />
+        </div>
       </div>
 
-      <h2>Your Organisations</h2>
-      {!orgs.length && <p>No organisations yet. Create one above.</p>}
-      <ul style={{ lineHeight: 1.9 }}>
-        {orgs.map((o) => (
-          <li key={o.id}>
-            {o.name}
-            <Link
-              href={`/org/${o.id}`}
-              style={{ marginLeft: 8, color: "#4ea8de", textDecoration: "underline" }}
-            >
-              Open
-            </Link>
-            <span style={{ color: "#888" }}> ({new Date(o.created_at).toLocaleString()})</span>
-          </li>
-        ))}
-      </ul>
-    </main>
+      {/* list */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="mb-3 text-lg font-medium">Your Organisations</h2>
+        {!orgs.length && <p className="text-zinc-400">No organisations yet. Create one above.</p>}
+        <ul className="divide-y divide-zinc-800">
+          {orgs.map((o) => (
+            <li key={o.id} className="flex items-center justify-between py-3">
+              <div>
+                <div className="font-medium">{o.name}</div>
+                <div className="text-xs text-zinc-400">
+                  {new Date(o.created_at).toLocaleString()}
+                </div>
+              </div>
+              <Link href={`/org/${o.id}`} className="text-sm text-sky-400 hover:underline">
+                Open →
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </AppShell>
   );
 }
