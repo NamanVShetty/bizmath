@@ -15,48 +15,42 @@ export default function DashboardPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Redirect to sign-in if not logged in
+  // redirect if not logged in
   useEffect(() => {
     if (isSignedIn === false) router.push("/sign-in");
   }, [isSignedIn, router]);
 
-  // Load user’s organisations
+  // load orgs
   const loadOrgs = async () => {
     if (!user) return;
     const { data, error } = await supabase
       .from("organisations")
-      .select("id,name,created_at")
+      .select("id, name, created_at")
       .eq("owner_user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error.message);
-      return;
-    }
-    setOrgs((data || []) as Org[]);
+    if (!error && data) setOrgs(data as Org[]);
   };
 
   useEffect(() => {
     loadOrgs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Create new organisation
+  // create org
   const createOrg = async () => {
-    const name = orgName.trim();
-    if (!user || !name) return;
+    if (!user || !orgName.trim()) return;
     setSaving(true);
 
     const { data, error } = await supabase
       .from("organisations")
-      .insert({ name, owner_user_id: user.id })
-      .select("id,name,created_at")
+      .insert({ name: orgName.trim(), owner_user_id: user.id })
+      .select("id, name, created_at")
       .single();
 
     setSaving(false);
 
     if (error) {
-      alert("Failed to create organisation: " + error.message);
+      alert("Error: " + error.message);
       return;
     }
 
@@ -74,7 +68,6 @@ export default function DashboardPage() {
       </div>
 
       <h1>Dashboard</h1>
-      <p>Create your first Organisation below. It will be saved in Supabase.</p>
 
       <div style={{ display: "flex", gap: 8 }}>
         <input
@@ -92,20 +85,15 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div>
-        <h2 style={{ margin: "16px 0 8px" }}>Your Organisations</h2>
-        {!orgs.length && <p>No organisations yet. Create one above.</p>}
-        <ul style={{ lineHeight: 1.9 }}>
-          {orgs.map((o) => (
-            <li key={o.id}>
-              {o.name}{" "}
-              <span style={{ color: "#888" }}>
-                ({new Date(o.created_at).toLocaleString()})
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <h2>Your Organisations</h2>
+      {!orgs.length && <p>No organisations yet. Create one above.</p>}
+      <ul style={{ lineHeight: 1.9 }}>
+        {orgs.map((o) => (
+          <li key={o.id}>
+            {o.name} <span style={{ color: "#888" }}>({new Date(o.created_at).toLocaleString()})</span>
+          </li>
+        ))}
+      </ul>
     </main>
   );
 }
