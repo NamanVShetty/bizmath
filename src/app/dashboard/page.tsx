@@ -9,21 +9,17 @@ import { supabase } from "@/lib/supabase";
 type Org = { id: string; name: string; created_at: string };
 
 export default function DashboardPage() {
-  // Clerk auth (client-side)
   const { isSignedIn, user } = useUser();
   const router = useRouter();
 
-  // UI state
   const [orgName, setOrgName] = useState("");
   const [saving, setSaving] = useState(false);
   const [orgs, setOrgs] = useState<Org[]>([]);
 
-  // If logged out, send to /sign-in
   useEffect(() => {
     if (isSignedIn === false) router.push("/sign-in");
   }, [isSignedIn, router]);
 
-  // Load organisations for the current user
   const loadOrgs = async () => {
     if (!user) return;
     const { data, error } = await supabase
@@ -40,7 +36,6 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Create a new organisation
   const createOrg = async () => {
     const name = orgName.trim();
     if (!user || !name) return;
@@ -60,14 +55,13 @@ export default function DashboardPage() {
     }
 
     setOrgName("");
-    setOrgs((prev) => [data as Org, ...prev]); // show immediately
+    setOrgs((prev) => [data as Org, ...prev]);
   };
 
   if (!isSignedIn) return null;
 
   return (
     <main style={{ padding: 24, display: "grid", gap: 16 }}>
-      {/* header actions */}
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
         <UserButton />
         <SignOutButton />
@@ -76,7 +70,6 @@ export default function DashboardPage() {
       <h1>Dashboard</h1>
       <p>Create your first Organisation below. It will be saved in Supabase.</p>
 
-      {/* create org */}
       <div style={{ display: "flex", gap: 8 }}>
         <input
           value={orgName}
@@ -93,7 +86,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* list orgs */}
       <h2>Your Organisations</h2>
       {!orgs.length && <p>No organisations yet. Create one above.</p>}
       <ul style={{ lineHeight: 1.9 }}>
